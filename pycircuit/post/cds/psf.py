@@ -51,7 +51,7 @@ class PSFData(object):
     def toPSFasc(self, prec=None):
         return str(self)
     def __repr__(self):
-        return self.value.__repr__()
+        return "%s(%r)" % (self.__class__.__name__, self.value)
 
 class PSFNumber(PSFData):
     def __int__(self):
@@ -194,7 +194,8 @@ class Struct(PSFData):
         return s
 
     def __repr__(self):
-        return "\n".join([indent(s) for s in map(repr,self.value.items())]) + "\n"
+        return "Struct(self.structdef)"
+        #return "\n".join([indent(s) for s in map(repr,self.value.items())]) + "\n"
 
 class Array(PSFData):
     def setValue(self, value):
@@ -215,7 +216,8 @@ class Array(PSFData):
         return tuple(self.children)
 
     def __repr__(self):
-        return "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
+        return "Array()"
+        #return "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
 
 class Chunk:
     """Base class for chunk"""
@@ -374,12 +376,12 @@ class DataTypeDef(Chunk):
 class DataTypeRef(Chunk):
     type=16
     """Class representing link to data type"""
-    def __init__(self, psf, type=None):
+    def __init__(self, psf, type=None, name=None, datatypeid=None, properties=None, id=None):
         Chunk.__init__(self, psf, type)
         self.id = None
         self.name = None
-        self.datatypeid = 0
-        self.properties = []
+        self.datatypeid = datatypeid or 0
+        self.properties = properties or []
 
     def getDataObj(self):
         """Get a data object described by the DataType"""
@@ -418,8 +420,14 @@ class DataTypeRef(Chunk):
                 break
 
     def __repr__(self):
-        return self.__class__.__name__+"("+str({"name":self.name,"id":"0x%x"%self.id, "datatypeid":self.datatypeid,
-                                                "properties":self.properties})+")"
+        return "%s(psf, type=%r, name=%r, datatypeid=%r, properties=%r, id=%r)" % (self.__class__.__name__,
+                                                                                   self.type,
+                                                                                   self.name,
+                                                                                   self.datatypeid,
+                                                                                   self.properties,
+                                                                                   self.id)
+        #return self.__class__.__name__+"("+str({"name":self.name,"id":"0x%x"%self.id, "datatypeid":self.datatypeid,
+        #                                        "properties":self.properties})+")"
 
 class StructDef(PSFData):
     """Class representing struct definition"""
@@ -454,16 +462,20 @@ class StructDef(PSFData):
                 self.children.append(chunk)
 
     def __repr__(self):
-        return self.__class__.__name__ + "(\n"+\
-               "\n".join(map(str,self.children))+\
-               ")\n"
+        return "StructDef"
+        #return self.__class__.__name__ + "(\n"+\
+        #       "\n".join(map(str,self.children))+\
+        #       ")\n"
 
 class SimpleContainer(Chunk):
     type = 21
-    def __init__(self, psf, type=None, childrenclslist=None, childrenclsignore=None):
+    def __init__(self, psf, type=None, childrenclslist=None, childrenclsignore=None, children=None):
         Chunk.__init__(self, psf, type)
         self.section = None
-        self.children = []
+        if children:
+            self.children = children
+        else:
+            self.children = []
         self.childrenclslist = childrenclslist
         self.childrenclsignore = childrenclsignore
         self.endpos = None
@@ -489,14 +501,15 @@ class SimpleContainer(Chunk):
         file.seek(self.endpos)
 
     def __repr__(self):
-        s=""
-        if self.fileoffset:
-            s+= "0x%x"%self.fileoffset+ ":"
-        s+= self.__class__.__name__  + "(" + str(self.type) +")"
-        if self.endpos and self.fileoffset:
-            s+= "size="+str(self.endpos-self.fileoffset)
-        s+= "\n" + "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
-        return s
+        return "SimpleContainer(children=%r)" % self.children
+        # s=""
+        # if self.fileoffset:
+        #     s+= "0x%x"%self.fileoffset+ ":"
+        # s+= self.__class__.__name__  + "(" + str(self.type) +")"
+        # if self.endpos and self.fileoffset:
+        #     s+= "size="+str(self.endpos-self.fileoffset)
+        # s+= "\n" + "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
+        # return s
 
 class Container22(Chunk):
     type=22
@@ -528,8 +541,9 @@ class Container22(Chunk):
         file.seek(self.endpos)
 
     def __repr__(self):
-        return "0x%x"%self.fileoffset +":" + self.__class__.__name__  +\
-               "(" + str(self.type) +")" + "\n" + "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
+        return "Container22()"
+        #return "0x%x"%self.fileoffset +":" + self.__class__.__name__  +\
+        #       "(" + str(self.type) +")" + "\n" + "\n".join([indent(s) for s in map(str,self.children)]) + "\n"
 
 
 class ZeroPad(Chunk):
@@ -559,7 +573,8 @@ class HashTable(Chunk):
             self.children.append((id, offset))
 
     def __repr__(self):
-        return self.__class__.__name__+"\n"+ "\n".join(["  0x%x: 0x%x"%(k,v.value) for k,v in self.children])+")"
+        return "HashTable()"
+        #return self.__class__.__name__+"\n"+ "\n".join(["  0x%x: 0x%x"%(k,v.value) for k,v in self.children])+")"
 
 class HashTableTrace(Chunk):
     type = 19
@@ -626,15 +641,17 @@ class HashContainer(Chunk):
         file.seek(self.endpos)
 
     def __repr__(self):
-        s=""
-        if self.fileoffset:
-            s += "0x%x"%self.fileoffset +":" 
-        s += self.__class__.__name__  + "(" + str(self.type) +")"
-        if self.endpos:
-            s+=" size="+str(self.endpos-self.fileoffset) + "\n"
-        s += "\n".join([indent(s) for s in map(str,(self.children, self.hashtable))]) + "\n"
-        return s
-    
+        return "HashTableTrace()"
+        # s=""
+        # if self.fileoffset:
+        #     s += "0x%x"%self.fileoffset +":" 
+        # s += self.__class__.__name__  + "(" + str(self.type) +")"
+        # if self.endpos:
+        #     s+=" size="+str(self.endpos-self.fileoffset) + "\n"
+        # s += "\n".join([indent(s) for s in map(str,(self.children, self.hashtable))]) + "\n"
+        # return s
+
+
 class HeaderSection(SimpleContainer):
     type=21
     def __init__(self, psf, n=None):
@@ -750,6 +767,7 @@ class TraceSection(HashContainer):
         r="TRACE\n"
         r+="\n".join([child.toPSFasc(prec) for child in self.children])
         return r
+
     def getTraceNames(self):
         result = []
         for trace in self.children:
@@ -949,14 +967,14 @@ class NonSweepValue(Chunk):
 class SweepValue(Chunk):
     """Class representing waveform data"""
     type = 16
-    def __init__(self, psf, type=None):
+    def __init__(self, psf, type=None, children=None):
         Chunk.__init__(self, psf, type)
         self.id = None
         self.linktypeid = UInt32()
         self.datatypeid = UInt32()
         self.paramtype = None
         self.paramvalue = None
-        self.children = []
+        self.children = children or []
         self.properties = []
 
     def deSerializeFile(self, file, n=None):
@@ -970,8 +988,12 @@ class SweepValue(Chunk):
         return len(self.children)
     
     def __repr__(self):
-        return self.__class__.__name__ + "(" + str(self.paramtype.name) + "=" + str(self.paramvalue) +","+ \
-               "children="+str(self.children) +")\n"
+        
+        return "SweepValue(self.paramvalue)" 
+
+        #return self.__class__.__name__ + "(" + str(self.paramtype.name) + "=" + str(self.paramvalue) +","+ \
+        #       "children="+str(self.children) +")\n"
+
 
 class SweepValueSimple(SweepValue):
     def deSerializeFile(self, file, n=None):
@@ -1101,7 +1123,8 @@ class GroupData(PSFData):
         return self.groupdef.getDataSize()
 
     def __repr__(self):
-        return "GroupData" + "\n" + "\n".join([indent(s) for s in map(repr,self.children)]) + "\n"
+        return self.__class__.__name__
+        #return "GroupData" + "\n" + "\n".join([indent(s) for s in map(repr,self.children)]) + "\n"
             
 class GroupDef(Chunk):
     type=17
